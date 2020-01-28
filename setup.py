@@ -20,7 +20,7 @@ setup(
     long_description='\n\n'.join([description, changelog]),
     install_requires=[
         'Django<2',
-        'M2Crypto>=0.35.2',
+        'pyopenssl>=0.16',
         'beautifulsoup4>=4.8.1',
         'structlog==16.1.0',
         'lxml==4.4.1'

@@ -3,10 +3,11 @@
 Signing code goes here.
 """
 from __future__ import absolute_import, print_function, unicode_literals
+import base64
 import hashlib
 import string
 
-import M2Crypto
+import OpenSSL.crypto
 from django.utils import six
 
 from . import saml2idp_metadata as smd
@@ -24,27 +25,30 @@ def load_certificate(config):
     certificate_filename = config.get(smd.CERTIFICATE_FILENAME)
     logger.info('Using certificate file: ' + certificate_filename)
 
-    certificate = M2Crypto.X509.load_cert(certificate_filename)
+    certificate = OpenSSL.crypto.load_certificate(
+        OpenSSL.crypto.FILETYPE_PEM, open(certificate_filename, 'rb').read())
 
-    # as_pem returns base64 text as bytes, so we can safely decode it
-    # as ascii.
-    pem = certificate.as_pem().decode('ascii')
-    return ''.join(pem.split('\n')[1:-2])
+    pem_bytes = OpenSSL.crypto.dump_certificate(
+        OpenSSL.crypto.FILETYPE_PEM, certificate)
+
+    # PEM files contain a base64 encoded string, so are fine to treat as ASCII
+    pem_str = ''.join(pem_bytes.decode('ascii').split('\n')[1:-2])
+
+    return pem_str
 
 
 def load_private_key(config):
     private_key_data = config.get(smd.PRIVATE_KEY_DATA)
 
     if private_key_data:
-        return M2Crypto.EVP.load_key_string(private_key_data)
+        return OpenSSL.crypto.load_privatekey(
+            OpenSSL.crypto.FILETYPE_PEM, private_key_data)
 
     private_key_file = config.get(smd.PRIVATE_KEY_FILENAME)
     logger.info('Using private key file: {}'.format(private_key_file))
 
-    # The filename need to be encoded because it is using a C extension under
-    # the hood which means it expects a 'const char*' type and will fail with
-    # unencoded unicode string.
-    return M2Crypto.EVP.load_key(private_key_file.encode('utf-8'))
+    return OpenSSL.crypto.load_privatekey(
+        OpenSSL.crypto.FILETYPE_PEM, open(private_key_file, 'rb').read())
 
 
 def sign_with_rsa(private_key, data):
@@ -52,13 +56,13 @@ def sign_with_rsa(private_key, data):
     Sign the given sequence of bytes with the private key.
     If 'data' is unicode, it's encoded as utf8 before signing.
     """
-    private_key.sign_init()
     if isinstance(data, six.text_type):
-        private_key.sign_update(data.encode('utf8'))
+        encoded_data = data.encode('utf8')
     else:
-        private_key.sign_update(data)
+        encoded_data = data
 
-    return nice64(private_key.sign_final())
+    signed_data = OpenSSL.crypto.sign(private_key, encoded_data, "sha1")
+    return base64.b64encode(signed_data).decode('ascii')
 
 
 def get_signature_xml(subject, reference_uri):
