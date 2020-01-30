@@ -19,15 +19,15 @@ setup(
     description='SAML 2.0 IdP for Django',
     long_description='\n\n'.join([description, changelog]),
     install_requires=[
-        'Django<2',
+        'Django<3',
         'pyopenssl>=0.16',
-        'beautifulsoup4>=4.8.1',
+        'beautifulsoup4<4.6.1',
         'structlog==16.1.0',
         'lxml==4.4.1'
     ],
     license='MIT',
     packages=['saml2idp'],
-    url='http://github.com/mobify/dj-saml-idp',
+    url='http://github.com/squareweave/dj-saml-idp',
     zip_safe=False,
     include_package_data=True,
 )
